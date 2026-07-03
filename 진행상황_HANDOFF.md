@@ -13,7 +13,7 @@
 | 상태별 마스코트 전환 | 완료 — 평상시 mascot_1 / 대답 준비 중 mascot_think / 대답 중 mascot_answer (`FloatingMascot.tsx`의 MascotState) |
 | 로컬 Docker Compose | 완료 — http://localhost:8090 E2E 검증 |
 | Cloud Run 배포 | 완료 — https://jeju-genie-1030073717906.asia-northeast3.run.app |
-| CI/CD 워크플로 파일 | 작성 완료 — 푸시 대기 (gh 재인증 필요) |
+| CI/CD | **가동 중** — `oiehnow/jeju-genie`(비공개) main 푸시 → lint/test → 빌드 → AR push → Cloud Run 자동 배포 (런 28665679774 전 잡 success, 리비전 00004) |
 
 - 배포 이미지: `asia-northeast3-docker.pkg.dev/project-65d06dcc-5794-483b-b6f/mlops-quicklab/jeju-genie:latest`
 - Chroma 인덱스 GCS: `gs://project-65d06dcc-5794-483b-b6f-mlops-quicklab/jeju-genie/chroma/` (서비스 시작 시 자동 pull)
@@ -62,11 +62,12 @@ cd backend && ./.venv/Scripts/python.exe -m uvicorn app.main:app --port 8090
 - 추후 디자인 변경 시: 에셋 교체 또는 theme.css 수정 → `npm run build` →
   `docker compose up -d --build`(로컬) / 이미지 재빌드+push+`gcloud run deploy`(배포)
 
-### 4. GitHub 재인증 (CI/CD 활성화)
-1. 사용자: `gh auth login` (현재 토큰 만료 상태)
-2. 레포 생성·푸시 → GitHub Secrets 등록: `GCP_SA_KEY`(Pipeline\solution의 SA 키 JSON 내용),
-   `GCP_PROJECT_ID`, (선택)`OPENAI_API_KEY`
-3. main 푸시 시 `.github/workflows/cicd.yml`이 lint+test → 빌드 → AR push → Cloud Run 배포
+### 4. GitHub / CI-CD — 완료 (2026-07-03)
+- gh 인증 완료(oiehnow), 비공개 레포 `oiehnow/jeju-genie` 생성·푸시.
+- Secrets 등록: `GCP_SA_KEY`, `GCP_PROJECT_ID`. SA에 `roles/run.admin` 부여(사용자 승인).
+- 이후 배포는 **main에 push만 하면 자동** (lint/test 실패 시 배포 차단).
+- GPT 키 도착 시: `gh secret set OPENAI_API_KEY` 후 워크플로가 Cloud Run 환경변수로 주입.
+- UI 2차 수정 반영됨: 새 마스코트 에셋, 플로팅 마스코트 3배(600px), 헤더 그라데이션·타이틀 확대.
 
 ## 주의사항
 - 도커 빌드는 항상 `--provenance=false --sbom=false --platform linux/amd64` (Vertex/AR 검증된 함정)
