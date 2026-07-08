@@ -1,14 +1,16 @@
-# 제주 지니 진행상황 HANDOFF (2026-07-08, 에이전트 개편 1·2라운드 반영)
+# 제주 지니 진행상황 HANDOFF (2026-07-08, 에이전트 개편 1·2·3라운드 반영)
 
 세션이 바뀌어도 이 문서만 읽으면 이어서 작업할 수 있다.
 
-## 현재 상태: 스트리밍 에이전트 + UI 전면 개편 완료
+## 현재 상태: 스트리밍 에이전트 + UI 전면 개편 + 3라운드 품질개선 완료
 
 | 항목 | 상태 |
 |---|---|
-| 백엔드 (스트리밍 tool-calling 에이전트 루프) | 완료 — `app/agent.py`, pytest 51개 통과 |
+| 백엔드 (스트리밍 tool-calling 에이전트 루프) | 완료 — `app/agent.py`, pytest 67개 통과 |
 | 도구 11종 (실시간 8 + 검색 2 + RAG 1) | 완료 — 전부 async, refs/map_points 계약 |
 | 신규 API 3종 (/api/now, /api/live/summary, /api/suggest) | 완료 — 로컬 E2E 검증 |
+| 3라운드 라이브 API 3종 (/api/news, /api/live/detail, /api/live/density) | 완료 — `app/live_api.py`, 로컬 E2E 검증 |
+| 3라운드 UI (사이드바 세분화, 밀집 지도, 뉴스/코스 카드, 대형 마스코트) | 완료 — `npm run build` 통과 |
 | 프롬프트 (하이브리드 페르소나) | 완료 — "자료에 없다" 금지, 비제주 질문만 거절 |
 | 프론트엔드 (Ocean Teal 팔레트, 사이드바, 지도, 후속 칩) | 완료 — `npm run build` 통과 |
 | 상태별 마스코트 5종 | 완료 — idle/thinking/answering/answered/sorry (`FloatingMascot.tsx`) |
@@ -73,8 +75,38 @@ tool-calling 루프**로 교체. 도구가 필요 없으면 LLM 왕복 1번에 �
 - `MessageBubble.tsx` — react-markdown + remark-gfm 렌더, 답변 후 후속 질문 칩 (= /api/suggest)
 - 마스코트: idle/thinking/answering/answered/sorry — sorry는 거절 답변("자료함에 없어요" 감지) 시
 
+## 3라운드 개편 (2026-07-08, 에이전트 3개 + 수동 수정)
+
+### 신규 라이브 API 3종 (`backend/app/live_api.py`, main.py 라우터 include)
+- `GET /api/news` — 구글 뉴스 RSS '제주' 검색 상위 4건 (30분 캐시, 실패 시 빈 목록·빈 결과 미캐시)
+- `GET /api/live/detail?category=fuel|weather|traffic&refresh=1` — 카테고리별 실시간 상세
+  (5분 캐시, refresh=1 무시. fuel은 도 평균 유가 + 최저가 주유소 둘 다, "조회 실패" 문구 제외)
+- `GET /api/live/density` — 중국인 관광객 밀집 지역 상위 12곳 (30분 캐시).
+  제주데이터허브 "읍면동 단위 외국인 단기체류 유동인구"를 nationality=중국으로 조회,
+  읍면동 43곳 좌표표(`_EMD_COORDS`)에 매핑해 level 1(빨강)/2(주황)/3(노랑) 3등분.
+  월간 데이터가 2~3개월 지연 게시라 최대 8개월 거슬러 최신월 탐색 (현재 2026-04).
+- 신규 `tests/test_live_api.py` — 전체 pytest 67개 통과
+- `prompts.py` — 지도 마커 관련 지침 1줄 추가
+
+### 3라운드 UI
+- `Sidebar.tsx` 세분화: 실시간 정보(유가/날씨/교통 패널 + 새로고침 버튼 = /api/live/detail),
+  중국인 관광객 밀집(= /api/live/density), 추천 코스 6종 카드(클릭 시 프리셋 질문 전송),
+  오늘의 제주 뉴스 카드(= /api/news)
+- 신규 `DensityMap.tsx` — 지도 오버레이, CircleMarker 빨강/주황/노랑 + 범례
+- `FloatingMascot.tsx` 대형화 + 신규 `mascot.css` (그림자 제거), `mascot_2.png` 에셋 교체(430x401)
+- `MapCard.tsx` 개선 + 신규 `mapcard.css` (280px 높이 + 헤더바)
+
+### 3라운드 데이터 발견사항
+- 데이터허브 "중국인 카드소비" 계열 API 4종은 데이터가 2016~2018에서 멈춘 스테일 —
+  밀집 지도는 "읍면동 단위 외국인 단기체류 유동인구"(최신 2026-04)로 대체함.
+- 데이터허브 프록시는 필터와 number/page를 섞으면 페이지가 안 넘어감 —
+  limit 파라미터(최대 100)로 한 번에 43개 읍면동 수신 (live_api.py 주석 참조).
+- **기상청 API허브 상류 장애 중** (APPLICATION_ERROR): /api/now temp=null,
+  /api/live/detail?category=weather items 빈 배열은 코드 문제가 아님. 복구되면 자동 정상화.
+
 ## 검증 결과 (2026-07-08 로컬 E2E)
 
+### 1·2라운드
 - pytest 51개 통과, ruff 통과, `npm run build` 통과
 - /api/health: llm_provider=openai, llm_available=true, index_chunks=2936
 - /api/now: temp=30, /api/live/summary: 날씨/유가/교통 3항목
@@ -84,6 +116,16 @@ tool-calling 루프**로 교체. 도구가 필요 없으면 LLM 왕복 1번에 �
   3. "서울 맛집" — 도구 없이 ㅠㅠ 톤 거절 + 제주 맛집으로 화제 전환
   4. "안녕!" — 즉시 토큰 시작, sources 네이버 폴백 1개
   5. /api/suggest — 후속 질문 3개 생성
+
+### 3라운드
+- pytest 67개 통과, `npm run build` 통과
+- docker compose E2E (http://localhost:8090):
+  - /api/health ok (index_chunks=2936), /api/news items 4건
+  - /api/live/detail?category=fuel items 2건(도 평균 유가 + 최저가 주유소),
+    traffic 1건(구간 12081개), weather 빈 배열(기상청 API허브 상류 장애 — 코드 문제 아님)
+  - /api/live/density: points 12곳, level 1~3 전부 존재, asof "2026-04 기준"
+  - 챗 "애월에서 가볼 만한 카페 추천해줘" — status(visitjeju_search) → live → 마크다운
+    목록 답변 토큰 → map 2포인트 → sources(visitjeju 링크 2건) → done
 
 ## 자주 쓰는 명령
 
