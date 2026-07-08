@@ -1,8 +1,8 @@
-# 제주 지니 진행상황 HANDOFF (2026-07-08, 에이전트 개편 1·2·3라운드 반영)
+# 제주 지니 진행상황 HANDOFF (2026-07-08, 에이전트 개편 1·2·3·4라운드 반영)
 
 세션이 바뀌어도 이 문서만 읽으면 이어서 작업할 수 있다.
 
-## 현재 상태: 스트리밍 에이전트 + UI 전면 개편 + 3라운드 품질개선 완료
+## 현재 상태: 스트리밍 에이전트 + UI 전면 개편 + 3·4라운드 품질개선 완료
 
 | 항목 | 상태 |
 |---|---|
@@ -13,7 +13,8 @@
 | 3라운드 UI (사이드바 세분화, 밀집 지도, 뉴스/코스 카드, 대형 마스코트) | 완료 — `npm run build` 통과 |
 | 프롬프트 (하이브리드 페르소나) | 완료 — "자료에 없다" 금지, 비제주 질문만 거절 |
 | 프론트엔드 (Ocean Teal 팔레트, 사이드바, 지도, 후속 칩) | 완료 — `npm run build` 통과 |
-| 상태별 마스코트 5종 | 완료 — idle/thinking/answering/answered/sorry (`FloatingMascot.tsx`) |
+| 상태별 마스코트 7종 | 완료 — idle/thinking/answering/answered/sorry/english/easteregg (`FloatingMascot.tsx`) |
+| 4라운드 (이스터에그 2종, 사이드바 마스코트, 주유소 링크, 대화 기록, density 폴백) | 완료 — pytest 72개, 브라우저 E2E 검증 |
 | 로컬 Docker Compose | 완료 — http://localhost:8090 E2E 5종 검증 (2026-07-08) |
 | Cloud Run 배포 | https://jeju-genie-1030073717906.asia-northeast3.run.app |
 | CI/CD | 가동 중 — `oiehnow/jeju-genie` main 푸시 → lint/test → 빌드 → AR push → Cloud Run 자동 배포 |
@@ -104,6 +105,38 @@ tool-calling 루프**로 교체. 도구가 필요 없으면 LLM 왕복 1번에 �
 - **기상청 API허브 상류 장애 중** (APPLICATION_ERROR): /api/now temp=null,
   /api/live/detail?category=weather items 빈 배열은 코드 문제가 아님. 복구되면 자동 정상화.
 
+## 4라운드 개편 (2026-07-08 저녁, 사용자 피드백 반영)
+
+### 이스터에그 2종 (App.tsx + FloatingMascot.tsx)
+- 영어 질문(한글 없이 알파벳 포함) → 영어로 답변(prompts.py 답변 스타일 1줄 추가) +
+  마스코트가 `mascot_english.png` 로 전환. 다음 일반 질문에서 평소 상태로 복귀.
+- 정확히 "guten tag" 입력(대소문자 무관) → API 호출 없이 "Auf Wiedersehen!" 즉답 +
+  `mascot_easteregg.png` 전환.
+- 신규 에셋 2종 assets/ 추가 (english 원본 2400px 는 1200px 로 축소 최적화, 1.4MB→349KB)
+
+### UI 변경
+- 마스코트 위치 이동: 채팅 카드 우하단 플로팅 → **사이드바** 로그인/회원가입 메뉴와
+  "오늘의 제주 뉴스" 카드 사이. 사이드바 폭 264→300px(theme.css). mascot.css 는
+  `.sidebar-mascot` 로 재작성 (flex-shrink:0 — 서브패널이 열려도 찌그러지지 않고
+  사이드바가 스크롤됨). app.css 의 구 .floating-mascot 규칙 제거.
+- 명칭 변경(메커니즘 그대로): 사이드바 버튼 "실시간 외국인 관광객 밀집",
+  오버레이 제목 "외국인 관광객 밀집 지도", 부제 "외국 카드 사용 내역 기반".
+  asof 에 "기준"이 중복 표기되던 버그도 수정.
+- 유가 패널: 제주시 휘발유 최저가 주유소 상위 7곳을 **카카오맵 검색 링크**로 제공.
+  /api/live/detail fuel 응답에 links[{label,url,desc}] 추가 — live_api 의
+  `_fuel_station_item()` 이 오피넷 lowTop10 직접 조회 (주유소 도구는 챗 에이전트용 유지).
+- **대화 기록 탭**: 새 대화 시 이전 대화가 사라지는 문제 해결 — localStorage
+  (`jeju-genie-chat-history`, 최대 20건)에 자동 보관, 사이드바 "대화 기록"에서
+  복원(이어서 대화 가능)/삭제. 복원 시 현재 대화도 보관됨.
+
+### density Cloud Run 폴백 (3라운드 배포 검증에서 발견)
+- Cloud Run 에서 데이터허브 프록시가 **비JSON 응답**을 반환해 /api/live/density 가
+  빈 지도({"asof": null, "points": []})가 되는 문제 발견 (로컬은 정상 —
+  GCP 발신 IP 에 대한 상류 이슈로 추정, 로그의 JSONDecodeError 로 확인).
+- live_api.py 대응: 월별 조회 실패 시 이전 달 계속 시도 + 전부 실패하면 번들 스냅샷
+  (`_DENSITY_FALLBACK`, 2026-04 실측 상위 12곳)으로 폴백. 폴백은 캐시하지 않아
+  상류 복구 시 자동 회복. 비JSON 본문 앞 200자를 로그로 남긴다 (원인 추적용).
+
 ## 검증 결과 (2026-07-08 로컬 E2E)
 
 ### 1·2라운드
@@ -126,6 +159,16 @@ tool-calling 루프**로 교체. 도구가 필요 없으면 LLM 왕복 1번에 �
   - /api/live/density: points 12곳, level 1~3 전부 존재, asof "2026-04 기준"
   - 챗 "애월에서 가볼 만한 카페 추천해줘" — status(visitjeju_search) → live → 마크다운
     목록 답변 토큰 → map 2포인트 → sources(visitjeju 링크 2건) → done
+
+### 4라운드 (브라우저 실측 E2E — claude-in-chrome)
+- pytest 72개 통과, ruff 통과, `npm run build` 통과
+- localhost:8090 브라우저 검증:
+  - 마스코트가 사이드바 로그인 메뉴와 뉴스 카드 사이에 표시, 유가 패널을 열어도 유지
+  - "guten tag" → "Auf Wiedersehen!" 즉답 + 이스터에그 마스코트
+  - "What is the best beach in Jeju?" → 영어 마크다운 답변 + 영어 마스코트
+  - 새 대화 → 대화 기록에 저장(제목=첫 질문) → 클릭 복원(전체 메시지 유지) 확인
+  - 유가 패널: 평균 유가 + 최저가 주유소 TOP 7 링크(카카오맵) 표시
+  - 밀집 지도: "외국인 관광객 밀집 지도 / 2026-04 기준 · 외국 카드 사용 내역 기반"
 
 ## 자주 쓰는 명령
 
