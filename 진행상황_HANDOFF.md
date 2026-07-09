@@ -26,7 +26,8 @@
 
 ## 2026-07-09 변경
 
-- 헤더 서브타이틀 문구 변경: "제주 여행 AI 컨시어지" → "Everything about Jeju" (`frontend/src/App.tsx`). 아직 커밋/배포 전.
+- 헤더 서브타이틀 문구 변경: "제주 여행 AI 컨시어지" → "Everything about Jeju" (`frontend/src/App.tsx`). 커밋 56a66cb 푸시 → CI/CD 배포 성공, 프로덕션 번들에서 새 문구 확인 완료.
+- GitHub 토큰 만료로 푸시가 멈추는 문제가 있었음 → `gh auth login -w` 재인증 + `gh auth setup-git`으로 해결 (자격 증명 헬퍼는 gh 경유).
 
 ## 아키텍처 (2026-07-08 개편판)
 
