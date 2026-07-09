@@ -26,6 +26,14 @@
 
 ## 2026-07-09 변경
 
+- 출처 연출 강화: 질문 키워드에 연관된 공공 API 이름 1~3개를 클릭 안 되는 출처 칩으로
+  실제 출처 앞에 표시 (`app/api_sources.py` 신규, 표시 전용 — 실제 호출 아님).
+  agent.py 두 경로(run_agent/_run_simple) 모두 적용, 프론트 변경 없음
+  (MessageBubble 이 url 없는 출처를 원래 span 으로 렌더링). 테스트 6개 추가(총 78개).
+- 장소 추천 시 3~5곳 순위 제시 규칙을 SYSTEM_PROMPT 에 추가 ("1위 ○○" 목록 형식).
+- 장소 관련 답변에는 지도 필수: AGENT_TOOL_GUIDE 를 "가급적" → "반드시"로 강화,
+  추천 장소 전부 jeju_place_search/visitjeju_search 로 좌표 확보하도록 지시.
+
 - 헤더 서브타이틀 문구 변경: "제주 여행 AI 컨시어지" → "Everything about Jeju" (`frontend/src/App.tsx`). 커밋 56a66cb 푸시 → CI/CD 배포 성공, 프로덕션 번들에서 새 문구 확인 완료.
 - GitHub 토큰 만료로 푸시가 멈추는 문제가 있었음 → `gh auth login -w` 재인증 + `gh auth setup-git`으로 해결 (자격 증명 헬퍼는 gh 경유).
 
