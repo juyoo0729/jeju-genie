@@ -24,6 +24,10 @@
 - LLM: .env의 `OPENAI_API_KEY` + `OPENAI_MODEL=gpt-5-mini` (추론 강도 low, max_completion_tokens 4096)
 - 로컬 8080은 Airflow 웹서버가 점유 중이라 **로컬 포트는 8090** 사용.
 
+## 2026-07-09 변경
+
+- 헤더 서브타이틀 문구 변경: "제주 여행 AI 컨시어지" → "Everything about Jeju" (`frontend/src/App.tsx`). 아직 커밋/배포 전.
+
 ## 아키텍처 (2026-07-08 개편판)
 
 ### 에이전트 루프 (`backend/app/agent.py`)
